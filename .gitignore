@@ -9,6 +9,8 @@
 
 
 *~
+*.qmake.stash
+*moc_predefs.h
 *.autosave
 *.a
 *.core
