@@ -20,8 +20,8 @@ struct SerialSetting
   QString string_stop_bits;
   QSerialPort::FlowControl flow_control;
   QString string_flow_control;
-  int response_timeout;
-  QString string_response_timeout;
+  int write_timeout;
+  QString string_write_timeout;
   //  bool local_echo_enabled;
 };
 

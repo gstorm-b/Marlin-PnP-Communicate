@@ -37,12 +37,101 @@ bool Marlin_Host::MH_IsConnected() {
   return is_connected;
 }
 
-void Marlin_Host::run() {
-  MH_Serial_Initialize();
+void Marlin_Host::MH_WriteCommand(QString command) {
+  mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
+  command_queue_.push_back(command);
+  mutex_.unlock();
+}
 
-  qDebug() << "Thread running...";
+void Marlin_Host::MH_Home() {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
+  MH_WriteCommand("G28");
+}
+
+void Marlin_Host::MH_DisableStepper() {
+  if (!MH_IsConnected()) {
+    return;
+  }
+  MH_WriteCommand("M18");
+}
+
+void Marlin_Host::MH_ManualJog(Axis axis, double distance) {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
+  QString jog_command = "G0";
+
+  switch (axis) {
+    case Axis::X:
+      jog_command += " X" + QString::number(distance) + " F3000";
+      break;
+    case Axis::Y:
+      jog_command += " Y" + QString::number(distance) + " F3000";
+      break;
+    case Axis::Z:
+      jog_command += " Z" + QString::number(distance) + " F3000";
+      break;
+    case Axis::R:
+      jog_command += " E" + QString::number(distance) + " F3000";
+      break;
+    default:
+      return;
+  }
+
+//  qDebug() << jog_command;
+  MH_WriteCommand("G91");
+  MH_WriteCommand(jog_command);
+  MH_WriteCommand("G90");
+  MH_WriteCommand("M114");
+}
+
+void Marlin_Host::run() {
+  if (!MH_Serial_Initialize()) {
+    thread_running_ = false;
+    qDebug() << "Marlin host initialze failed!";
+    return;
+  }
+
+  qDebug() << "Marlin host running...";
+  QByteArray read_bytes;
+  bool wait_command_confirm = false;
+
   while (thread_running_) {
     // thread handle
+    QList<QByteArray> lines = read_bytes.split(0x0a);
+
+    if (serial_host_->waitForReadyRead(10)) {
+//      qDebug() << "Available bytes: " << serial_host_->bytesAvailable();
+      read_bytes.push_back(serial_host_->readAll());
+      lines = read_bytes.split(0x0a);
+      read_bytes = lines.back();
+      qDebug() << "Read line: " << read_bytes;
+
+      if (lines.size() > 1) {
+        for (int i=0;i<(lines.size()-1);i++) {
+
+          if ((lines[i] == "ok") && (wait_command_confirm)) {
+            wait_command_confirm =  false;
+            command_queue_.pop_front();
+          }
+          emit MH_Signal_ReadBytesAvailable(lines[i]);
+        }
+      }
+    }
+
+    if ((command_queue_.size() > 0) && (!wait_command_confirm)) {
+      QByteArray command_bytes = command_queue_.front().toUtf8();
+      command_bytes.push_back(LINE_FEED_CHAR);
+      MH_Serial_WriteData(command_bytes);
+      wait_command_confirm = true;
+//      command_queue_.pop_front();
+      emit MH_Signal_ReadBytesAvailable(command_bytes);
+    }
+
     if (wait_disconnect_) {
       thread_running_ = false;
       wait_disconnect_ = false;
@@ -56,12 +145,13 @@ void Marlin_Host::run() {
   emit MH_Signal_Disconnected();
   marlin_host_connected_ = false;
 
-  qDebug() << "Theard done!";
+  qDebug() << "Marlin host stopped.";
 }
 
-void Marlin_Host::MH_Serial_Initialize() {
+bool Marlin_Host::MH_Serial_Initialize() {
   serial_host_ = new QSerialPort;
-  connect(this, &Marlin_Host::finished, serial_host_, &QSerialPort::deleteLater);
+  connect(this, &Marlin_Host::finished,
+          serial_host_, &QSerialPort::deleteLater);
 
   serial_host_->setPortName(serial_setting_.name);
   serial_host_->setBaudRate(serial_setting_.baudrate);
@@ -70,14 +160,26 @@ void Marlin_Host::MH_Serial_Initialize() {
   serial_host_->setStopBits(serial_setting_.stop_bits);
   serial_host_->setFlowControl(serial_setting_.flow_control);
 
+  command_queue_.clear();
+
   if (serial_host_->open(QIODevice::ReadWrite)) {
     marlin_host_connected_ = true;
     emit MH_Signal_Connected();
+    return true;
   } else {
     emit MH_Signal_ConnectFailed(serial_host_->errorString());
+    return false;
   }
 }
 
-void Marlin_Host::MH_Serial_ClearData() {
-
+void Marlin_Host::MH_Serial_WriteData(const QByteArray &data) {
+  serial_host_->write(data);
+  if (!serial_host_->waitForBytesWritten(serial_setting_.write_timeout)) {
+    const QString error = tr("Failed to write all data to port %1.\n"
+                             "Error: %2").arg(serial_host_->portName(),
+                                   serial_host_->errorString());
+    emit MH_Signal_ErrorOccurred(error);
+    return;
+  }
+  qDebug() << "Marlin host data written.";
 }

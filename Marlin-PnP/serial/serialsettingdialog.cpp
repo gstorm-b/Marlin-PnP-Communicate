@@ -47,8 +47,8 @@ SerialSetting SerialSettingDialog::GetSerialSetting() const {
   setting.flow_control = flow_control.value<QSerialPort::FlowControl>();
   setting.string_flow_control = ui->combobox_flow_control->currentText();
   // RESPONSE TIME OUT
-  setting.response_timeout = ui->spinBox_response_time->value();
-  setting.string_response_timeout = QString::number(setting.response_timeout, 10);
+  setting.write_timeout = ui->spinBox_response_time->value();
+  setting.string_write_timeout = QString::number(setting.write_timeout, 10);
   // LOCAL ECHO
   //  setting.string_flow_control = ui->combobox_local_echo->isChecked();
 
@@ -72,7 +72,8 @@ void SerialSettingDialog::FillPortParameter() {
   ui->combobox_baudrate->addItem(QStringLiteral("19200"), QSerialPort::Baud19200);
   ui->combobox_baudrate->addItem(QStringLiteral("38400"), QSerialPort::Baud38400);
   ui->combobox_baudrate->addItem(QStringLiteral("115200"), QSerialPort::Baud115200);
-  ui->combobox_baudrate->setCurrentIndex(3);
+  ui->combobox_baudrate->addItem(QStringLiteral("250000"), 250000);
+  ui->combobox_baudrate->setCurrentIndex(4);
 
   ui->combobox_data_bits->addItem(QStringLiteral("5"), QSerialPort::Data5);
   ui->combobox_data_bits->addItem(QStringLiteral("6"), QSerialPort::Data6);
@@ -94,7 +95,7 @@ void SerialSettingDialog::FillPortParameter() {
   ui->combobox_flow_control->addItem(tr("None"), QSerialPort::NoFlowControl);
   ui->combobox_flow_control->addItem(tr("RTS/CTS"), QSerialPort::HardwareControl);
   ui->combobox_flow_control->addItem(tr("XON/XOFF"), QSerialPort::SoftwareControl);
-  ui->combobox_flow_control->setCurrentIndex(0);
+  ui->combobox_flow_control->setCurrentIndex(2);
 }
 
 void SerialSettingDialog::FillAvailablePort() {

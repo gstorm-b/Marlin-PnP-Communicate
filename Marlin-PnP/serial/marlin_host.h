@@ -10,12 +10,20 @@
 
 #include "serialsettingdialog.h"
 
+#define LINE_FEED_CHAR (char)0x0A
 #define MUTEX_SERIAL_LOCK_TIMEOUT 500
 
 class Marlin_Host : public QThread
 {
   Q_OBJECT
 public:
+  enum Axis {
+    X = 0,
+    Y = 1,
+    Z = 2,
+    R = 3
+  };
+
   explicit Marlin_Host(QThread::Priority priority = QThread::NormalPriority,
                         QObject *parent = nullptr);
   ~Marlin_Host();
@@ -25,17 +33,22 @@ public:
   void MH_Connect(SerialSetting setting);
   void MH_Disconnect();
   bool MH_IsConnected();
+  void MH_WriteCommand(QString command);
+  void MH_Home();
+  void MH_DisableStepper();
+  void MH_ManualJog(Axis axis, double distance);
 
 private:
   void run() override;
-  void MH_Serial_Initialize();
-  void MH_Serial_ClearData();
+  bool MH_Serial_Initialize();
+  void MH_Serial_WriteData(const QByteArray &data);
 
 signals:
   void MH_Signal_Connected();
   void MH_Signal_Disconnected();
   void MH_Signal_ConnectFailed(QString msg);
   void MH_Signal_ErrorOccurred(QString msg);
+  void MH_Signal_ReadBytesAvailable(const QByteArray &data);
 
 private:
   QThread::Priority thread_priority_;
@@ -45,6 +58,8 @@ private:
   SerialSetting serial_setting_;
   bool marlin_host_connected_;
   bool wait_disconnect_;
+  QList<QString> command_queue_;
+
 };
 
 #endif // MARLIN_HOST_H
