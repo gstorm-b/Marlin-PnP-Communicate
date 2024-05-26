@@ -70,7 +70,8 @@ private:
   void marlin_host_event_disconnected();
   void marlin_host_event_connect_failed(QString msg);
   void marlin_host_event_error_occurred(QString msg);
-  void marlin_host_event_ready_read(const QByteArray &data_bytes);
+  void marlin_host_event_show_read_bytes(const QByteArray &data_bytes);
+  void marlin_host_event_show_written_bytes(const QByteArray &data_bytes);
 private:
   Ui::MainWindow *ui;
   Marlin_Host *marlin_host = nullptr;

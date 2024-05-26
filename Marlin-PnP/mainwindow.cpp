@@ -161,6 +161,14 @@ void MainWindow::event_clicked_btn_serial_send() {
 //      marlin_host->MH_WriteCommand("G0 Z70 F15000");
 //    }
 //  }
+//if (marlin_host->MH_IsConnected()) {
+//  for(int i=0;i<30;i++) {
+//    marlin_host->MH_WriteCommand("G1 E10 F10000");
+//    marlin_host->MH_WriteCommand("G0 Z40 F10000");
+//    marlin_host->MH_WriteCommand("G0 Z70 F10000");
+//    marlin_host->MH_WriteCommand("G1 E0 F10000");
+//  }
+//}
 //}
 
 void MainWindow::event_return_pressed_line_edit_serial_command() {
@@ -314,8 +322,10 @@ void MainWindow::marlin_host_initial_event() {
           this, &MainWindow::marlin_host_event_connect_failed);
   connect(marlin_host, &Marlin_Host::MH_Signal_ErrorOccurred,
           this, &MainWindow::marlin_host_event_error_occurred);
-  connect(marlin_host, &Marlin_Host::MH_Signal_ReadBytesAvailable,
-          this, &MainWindow::marlin_host_event_ready_read);
+  connect(marlin_host, &Marlin_Host::MH_Signal_ReadBytesToShow,
+          this, &MainWindow::marlin_host_event_show_read_bytes);
+  connect(marlin_host, &Marlin_Host::MH_Signal_WrittenBytesToShow,
+          this, &MainWindow::marlin_host_event_show_written_bytes);
 }
 
 void MainWindow::marlin_host_event_connected() {
@@ -339,8 +349,16 @@ void MainWindow::marlin_host_event_error_occurred(QString msg) {
   ui->statusbar->showMessage("Critical Error, close port.", 5000);
 }
 
-void MainWindow::marlin_host_event_ready_read(const QByteArray &data_bytes) {
-  QString msg = QString::fromUtf8(data_bytes);
-  ui->text_browser_serial_read->append(msg);
-//  ui->text_browser_serial_read->insertPlainText(msg);
+void MainWindow::marlin_host_event_show_read_bytes
+    (const QByteArray &data_bytes) {
+  QString msg = "[INPUT]   " + QString::fromUtf8(data_bytes);
+  ui->text_browser_serial_read->setTextBackgroundColor(QColor(189, 253, 255));
+  ui->text_browser_serial_read->append(msg + "  ");
+}
+
+void MainWindow::marlin_host_event_show_written_bytes
+    (const QByteArray &data_bytes) {
+  QString msg = "[OUTPUT]   " + QString::fromUtf8(data_bytes);
+  ui->text_browser_serial_read->setTextBackgroundColor(QColor(255, 189, 210));
+  ui->text_browser_serial_read->append(msg + "  ");
 }

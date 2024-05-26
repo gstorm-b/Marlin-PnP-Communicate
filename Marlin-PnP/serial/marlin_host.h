@@ -24,6 +24,12 @@ public:
     R = 3
   };
 
+  struct Position {
+    double X;
+    double Y;
+    double Z;
+  };
+
   explicit Marlin_Host(QThread::Priority priority = QThread::NormalPriority,
                         QObject *parent = nullptr);
   ~Marlin_Host();
@@ -37,6 +43,11 @@ public:
   void MH_Home();
   void MH_DisableStepper();
   void MH_ManualJog(Axis axis, double distance);
+  void MH_EnableVaccum();
+  void MH_DisableVaccum();
+  void MH_EnableBump();
+  void MH_DisableBump();
+  QString MH_LastCommand();
 
 private:
   void run() override;
@@ -48,6 +59,8 @@ signals:
   void MH_Signal_Disconnected();
   void MH_Signal_ConnectFailed(QString msg);
   void MH_Signal_ErrorOccurred(QString msg);
+  void MH_Signal_ReadBytesToShow(const QByteArray &bytes);
+  void MH_Signal_WrittenBytesToShow(const QByteArray &bytes);
   void MH_Signal_ReadBytesAvailable(const QByteArray &data);
 
 private:
@@ -59,7 +72,7 @@ private:
   bool marlin_host_connected_;
   bool wait_disconnect_;
   QList<QString> command_queue_;
-
+  QString last_command_;
 };
 
 #endif // MARLIN_HOST_H

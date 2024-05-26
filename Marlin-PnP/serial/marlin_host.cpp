@@ -38,6 +38,9 @@ bool Marlin_Host::MH_IsConnected() {
 }
 
 void Marlin_Host::MH_WriteCommand(QString command) {
+  if (command.isEmpty()) {
+    return;
+  }
   mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
   command_queue_.push_back(command);
   mutex_.unlock();
@@ -82,11 +85,42 @@ void Marlin_Host::MH_ManualJog(Axis axis, double distance) {
       return;
   }
 
-//  qDebug() << jog_command;
   MH_WriteCommand("G91");
   MH_WriteCommand(jog_command);
   MH_WriteCommand("G90");
   MH_WriteCommand("M114");
+}
+
+void Marlin_Host::MH_EnableVaccum() {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
+  MH_WriteCommand("M104 S255");
+}
+
+void Marlin_Host::MH_DisableVaccum() {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
+  MH_WriteCommand("M104 S0");
+}
+
+void Marlin_Host::MH_EnableBump() {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
+  MH_WriteCommand("M140 S255");
+}
+
+void Marlin_Host::MH_DisableBump() {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
+  MH_WriteCommand("M140 S0");
 }
 
 void Marlin_Host::run() {
@@ -98,38 +132,44 @@ void Marlin_Host::run() {
 
   qDebug() << "Marlin host running...";
   QByteArray read_bytes;
-  bool wait_command_confirm = false;
+  bool wait_command_respond = false;
 
   while (thread_running_) {
     // thread handle
-    QList<QByteArray> lines = read_bytes.split(0x0a);
 
+    ///// input bytes handle
+    QList<QByteArray> lines;
+    // read input
     if (serial_host_->waitForReadyRead(10)) {
-//      qDebug() << "Available bytes: " << serial_host_->bytesAvailable();
       read_bytes.push_back(serial_host_->readAll());
       lines = read_bytes.split(0x0a);
       read_bytes = lines.back();
-      qDebug() << "Read line: " << read_bytes;
 
       if (lines.size() > 1) {
         for (int i=0;i<(lines.size()-1);i++) {
-
-          if ((lines[i] == "ok") && (wait_command_confirm)) {
-            wait_command_confirm =  false;
-            command_queue_.pop_front();
+          if ((lines[i] == "ok") && (wait_command_respond)) {
+            wait_command_respond =  false;
+            lines[i].push_back(" (");
+            lines[i].push_back(last_command_.toUtf8());
+            lines[i].push_back(")");
+            emit MH_Signal_ReadBytesToShow(lines[i]);
+            continue;
           }
-          emit MH_Signal_ReadBytesAvailable(lines[i]);
+
+          emit MH_Signal_ReadBytesToShow(lines[i]);
         }
       }
     }
 
-    if ((command_queue_.size() > 0) && (!wait_command_confirm)) {
+    ///// output bytes handle
+    if ((command_queue_.size() > 0) && (!wait_command_respond)) {
       QByteArray command_bytes = command_queue_.front().toUtf8();
+      last_command_ = command_queue_.front();
       command_bytes.push_back(LINE_FEED_CHAR);
       MH_Serial_WriteData(command_bytes);
-      wait_command_confirm = true;
-//      command_queue_.pop_front();
-      emit MH_Signal_ReadBytesAvailable(command_bytes);
+      wait_command_respond = true;
+      command_queue_.pop_front();
+      emit MH_Signal_WrittenBytesToShow(last_command_.toUtf8());
     }
 
     if (wait_disconnect_) {
