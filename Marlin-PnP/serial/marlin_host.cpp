@@ -91,28 +91,37 @@ void Marlin_Host::MH_ManualJog(Axis axis, double distance) {
   MH_WriteCommand("M114");
 }
 
-void Marlin_Host::MH_EnableVaccum() {
+void Marlin_Host::MH_EnableValve() {
   if (!MH_IsConnected()) {
     return;
   }
 
-  MH_WriteCommand("M104 S255");
+  MH_WriteCommand(VALVE_ENABLE);
 }
 
-void Marlin_Host::MH_DisableVaccum() {
+void Marlin_Host::MH_DisableValve() {
   if (!MH_IsConnected()) {
     return;
   }
 
-  MH_WriteCommand("M104 S0");
+  MH_WriteCommand(VALVE_DISBALE);
 }
+
+bool Marlin_Host::MH_IsValveEnable() {
+  bool state;
+  mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
+  state = is_valve_enable_;
+  mutex_.unlock();
+  return state;
+}
+
 
 void Marlin_Host::MH_EnableBump() {
   if (!MH_IsConnected()) {
     return;
   }
 
-  MH_WriteCommand("M140 S255");
+  MH_WriteCommand(BUMP_ENABLE);
 }
 
 void Marlin_Host::MH_DisableBump() {
@@ -120,7 +129,23 @@ void Marlin_Host::MH_DisableBump() {
     return;
   }
 
-  MH_WriteCommand("M140 S0");
+  MH_WriteCommand(BUMP_DISBALE);
+}
+
+bool Marlin_Host::MH_IsBumpEnable() {
+  bool state;
+  mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
+  state = is_bump_enable_;
+  mutex_.unlock();
+  return state;
+}
+
+Marlin_Host::Position Marlin_Host::MH_CurrentTargetPosition() {
+  Position target;
+  mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
+  target = target_position_;
+  mutex_.unlock();
+  return target;
 }
 
 void Marlin_Host::run() {
@@ -133,6 +158,8 @@ void Marlin_Host::run() {
   qDebug() << "Marlin host running...";
   QByteArray read_bytes;
   bool wait_command_respond = false;
+  this->msleep(2000);
+  MH_WriteCommand("M154 S1");
 
   while (thread_running_) {
     // thread handle
@@ -147,13 +174,42 @@ void Marlin_Host::run() {
 
       if (lines.size() > 1) {
         for (int i=0;i<(lines.size()-1);i++) {
+          // command respond ok case
           if ((lines[i] == "ok") && (wait_command_respond)) {
             wait_command_respond =  false;
             lines[i].push_back(" (");
             lines[i].push_back(last_command_.toUtf8());
             lines[i].push_back(")");
             emit MH_Signal_ReadBytesToShow(lines[i]);
+
+            if (last_command_ == VALVE_ENABLE) {
+              is_valve_enable_ = true;
+            } else if (last_command_ == VALVE_DISBALE) {
+              is_valve_enable_ = false;
+            } else if (last_command_ == BUMP_ENABLE) {
+              is_bump_enable_ = true;
+            } else if (last_command_ == BUMP_DISBALE) {
+              is_bump_enable_ = false;
+            }
             continue;
+          }
+
+          // get position
+          if ((lines[i]).contains("X:") &&
+              (lines[i]).contains("Y:") &&
+              (lines[i]).contains("Z:") &&
+              (lines[i]).contains("E:")) {
+
+            QList<QByteArray> axes = lines[i].split(' ');
+            axes[0].remove(0, 2);
+            axes[1].remove(0, 2);
+            axes[2].remove(0, 2);
+            axes[3].remove(0, 2);
+            target_position_.X = axes[0].toDouble();
+            target_position_.Y = axes[1].toDouble();
+            target_position_.Z = axes[2].toDouble();
+            target_position_.R = axes[3].toDouble();
+            emit MH_Signal_TargetPoisionChanged(target_position_);
           }
 
           emit MH_Signal_ReadBytesToShow(lines[i]);
@@ -204,6 +260,8 @@ bool Marlin_Host::MH_Serial_Initialize() {
 
   if (serial_host_->open(QIODevice::ReadWrite)) {
     marlin_host_connected_ = true;
+    is_bump_enable_ = false;
+    is_valve_enable_ = false;
     emit MH_Signal_Connected();
     return true;
   } else {

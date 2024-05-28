@@ -32,6 +32,8 @@ private:
 
   void event_clicked_btn_home();
   void event_clicked_btn_disable_motor();
+  void event_clicked_btn_enable_bump();
+  void event_clicked_btn_enable_valve();
 
   void event_clicked_btn_move_x_plus_1();
   void event_clicked_btn_move_x_plus_10();
@@ -72,6 +74,8 @@ private:
   void marlin_host_event_error_occurred(QString msg);
   void marlin_host_event_show_read_bytes(const QByteArray &data_bytes);
   void marlin_host_event_show_written_bytes(const QByteArray &data_bytes);
+  void marlin_host_event_target_position_changed(
+      const Marlin_Host::Position target);
 private:
   Ui::MainWindow *ui;
   Marlin_Host *marlin_host = nullptr;

@@ -48,6 +48,10 @@ void MainWindow::event_initialize() {
           this, &MainWindow::event_clicked_btn_home);
   connect(ui->btn_disable_motor, &QPushButton::clicked,
           this, &MainWindow::event_clicked_btn_disable_motor);
+  connect(ui->btn_enable_bump, &QPushButton::clicked,
+          this, &MainWindow::event_clicked_btn_enable_bump);
+  connect(ui->btn_enable_valve, &QPushButton::clicked,
+          this, &MainWindow::event_clicked_btn_enable_valve);
 
   /// MANUAL JOG X
   connect(ui->btn_move_x_plus_1, &QPushButton::clicked,
@@ -184,6 +188,27 @@ void MainWindow::event_clicked_btn_home() {
 void MainWindow::event_clicked_btn_disable_motor() {
   marlin_host->MH_DisableStepper();
 }
+
+void MainWindow::event_clicked_btn_enable_bump() {
+  if (!marlin_host->MH_IsBumpEnable()) {
+    marlin_host->MH_EnableBump();
+    ui->btn_enable_bump->setText("Bump (On)");
+  } else {
+    marlin_host->MH_DisableBump();
+    ui->btn_enable_bump->setText("Bump (Off)");
+  }
+}
+
+void MainWindow::event_clicked_btn_enable_valve() {
+  if (!marlin_host->MH_IsValveEnable()) {
+    marlin_host->MH_EnableValve();
+    ui->btn_enable_valve->setText("Valve (On)");
+  } else {
+    marlin_host->MH_DisableValve();
+    ui->btn_enable_valve->setText("Valve (Off)");
+  }
+}
+
 
 /// MANUAL JOG X
 void MainWindow::event_clicked_btn_move_x_plus_1() {
@@ -326,6 +351,8 @@ void MainWindow::marlin_host_initial_event() {
           this, &MainWindow::marlin_host_event_show_read_bytes);
   connect(marlin_host, &Marlin_Host::MH_Signal_WrittenBytesToShow,
           this, &MainWindow::marlin_host_event_show_written_bytes);
+  connect(marlin_host, &Marlin_Host::MH_Signal_TargetPoisionChanged,
+          this, &MainWindow::marlin_host_event_target_position_changed);
 }
 
 void MainWindow::marlin_host_event_connected() {
@@ -361,4 +388,12 @@ void MainWindow::marlin_host_event_show_written_bytes
   QString msg = "[OUTPUT]   " + QString::fromUtf8(data_bytes);
   ui->text_browser_serial_read->setTextBackgroundColor(QColor(255, 189, 210));
   ui->text_browser_serial_read->append(msg + "  ");
+}
+
+void MainWindow::marlin_host_event_target_position_changed(
+    const Marlin_Host::Position target) {
+  ui->lb_position_x->setText("X: " + QString::number(target.X));
+  ui->lb_position_y->setText("Y: " + QString::number(target.Y));
+  ui->lb_position_z->setText("Z: " + QString::number(target.Z));
+  ui->lb_position_r->setText("R: " + QString::number(target.R));
 }

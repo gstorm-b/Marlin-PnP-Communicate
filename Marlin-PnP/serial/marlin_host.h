@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QMutex>
 #include <QSerialPort>
+#include <QTimer>
 
 #include <QDebug>
 
@@ -12,6 +13,10 @@
 
 #define LINE_FEED_CHAR (char)0x0A
 #define MUTEX_SERIAL_LOCK_TIMEOUT 500
+#define VALVE_ENABLE "M106 S255"
+#define VALVE_DISBALE "M106 S0"
+#define BUMP_ENABLE "M104 S255"
+#define BUMP_DISBALE "M104 S0"
 
 class Marlin_Host : public QThread
 {
@@ -28,6 +33,7 @@ public:
     double X;
     double Y;
     double Z;
+    double R;
   };
 
   explicit Marlin_Host(QThread::Priority priority = QThread::NormalPriority,
@@ -43,10 +49,13 @@ public:
   void MH_Home();
   void MH_DisableStepper();
   void MH_ManualJog(Axis axis, double distance);
-  void MH_EnableVaccum();
-  void MH_DisableVaccum();
+  void MH_EnableValve();
+  void MH_DisableValve();
+  bool MH_IsValveEnable();
   void MH_EnableBump();
   void MH_DisableBump();
+  bool MH_IsBumpEnable();
+  Position MH_CurrentTargetPosition();
   QString MH_LastCommand();
 
 private:
@@ -62,6 +71,7 @@ signals:
   void MH_Signal_ReadBytesToShow(const QByteArray &bytes);
   void MH_Signal_WrittenBytesToShow(const QByteArray &bytes);
   void MH_Signal_ReadBytesAvailable(const QByteArray &data);
+  void MH_Signal_TargetPoisionChanged(const Position new_target);
 
 private:
   QThread::Priority thread_priority_;
@@ -73,6 +83,9 @@ private:
   bool wait_disconnect_;
   QList<QString> command_queue_;
   QString last_command_;
+  Position target_position_;
+  bool is_bump_enable_;
+  bool is_valve_enable_;
 };
 
 #endif // MARLIN_HOST_H
