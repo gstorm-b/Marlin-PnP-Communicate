@@ -9,6 +9,7 @@
 
 #include "serial/serialsettingdialog.h"
 #include "serial/marlin_host.h"
+#include "blineedit.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -29,6 +30,7 @@ private:
   void event_clicked_btn_serial_connect();
   void event_clicked_btn_serial_send();
   void event_return_pressed_line_edit_serial_command();
+  void event_key_pressed_line_edit_serial_command(QKeyEvent *event);
 
   void event_clicked_btn_home();
   void event_clicked_btn_disable_motor();
@@ -76,8 +78,12 @@ private:
   void marlin_host_event_show_written_bytes(const QByteArray &data_bytes);
   void marlin_host_event_target_position_changed(
       const Marlin_Host::Position target);
+
+  void send_marlin_command();
 private:
   Ui::MainWindow *ui;
   Marlin_Host *marlin_host = nullptr;
+
+  bool test = false;
 };
 #endif // MAINWINDOW_H

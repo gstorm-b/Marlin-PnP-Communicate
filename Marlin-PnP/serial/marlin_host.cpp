@@ -46,6 +46,15 @@ void Marlin_Host::MH_WriteCommand(QString command) {
   mutex_.unlock();
 }
 
+void Marlin_Host::MH_WritePriorCommand(QString command) {
+  if (command.isEmpty()) {
+    return;
+  }
+  mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
+  prior_command_queue_.push_back(command);
+  mutex_.unlock();
+}
+
 void Marlin_Host::MH_Home() {
   if (!MH_IsConnected()) {
     return;
@@ -89,6 +98,31 @@ void Marlin_Host::MH_ManualJog(Axis axis, double distance) {
   MH_WriteCommand(jog_command);
   MH_WriteCommand("G90");
   MH_WriteCommand("M114");
+}
+
+void Marlin_Host::MH_PnP(Position pick, double pick_jump,
+            Position place, double place_jump,
+            double speed, double lift_speed) {
+
+  Position pick_high = pick;
+  pick_high.Z += pick_jump;
+  Position place_high = place;
+  place_high.Z += place_jump;
+
+//  MH_WriteCommand("M204 P1000");
+
+  MH_WriteCommand(MH_StrMoveL(pick_high, speed, true));
+  MH_WriteCommand("G4 P200");
+  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%.3f", pick.Z, lift_speed));
+  MH_WriteCommand(QString::asprintf("G0 Z%.3f", pick_high.Z));
+
+  MH_WriteCommand(MH_StrMoveL(place_high, speed, true));
+
+  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%.3f", place.Z, lift_speed));
+  MH_EnableValve();
+  MH_WriteCommand("G4 P200");
+  MH_WriteCommand(QString::asprintf("G0 Z%.3f", place_high.Z));
+  MH_DisableValve();
 }
 
 void Marlin_Host::MH_EnableValve() {
@@ -141,11 +175,34 @@ bool Marlin_Host::MH_IsBumpEnable() {
 }
 
 Marlin_Host::Position Marlin_Host::MH_CurrentTargetPosition() {
-  Position target;
+  Marlin_Host::Position target;
   mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
   target = target_position_;
   mutex_.unlock();
   return target;
+}
+
+QString Marlin_Host::MH_LastCommand(){
+  QString command = "";
+  mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
+  command = last_command_;
+  mutex_.unlock();
+  return command;
+}
+
+QString Marlin_Host::MH_StrMoveL(Position coor, double speed, bool use_r){
+  QString command;
+  if (use_r) {
+    command = QString::asprintf("G1 X%.3f Y%.3f Z%.3f R%.3f", coor.X, coor.Y, coor.Z, coor.R);
+  } else {
+    command = QString::asprintf("G0 X%.3f Y%.3f Z%.3f", coor.X, coor.Y, coor.Z);
+  }
+
+  if (speed > 0) {
+    command.append(QString::asprintf(" F%.3f", speed));
+  }
+
+  return command;
 }
 
 void Marlin_Host::run() {
@@ -159,6 +216,7 @@ void Marlin_Host::run() {
   QByteArray read_bytes;
   bool wait_command_respond = false;
   this->msleep(2000);
+  MH_WriteCommand("G21");
   MH_WriteCommand("M154 S1");
 
   while (thread_running_) {
@@ -228,6 +286,26 @@ void Marlin_Host::run() {
       emit MH_Signal_WrittenBytesToShow(last_command_.toUtf8());
     }
 
+//    if (!wait_command_respond) {
+//      if (prior_command_queue_.size() > 0) {
+//        QByteArray command_bytes = prior_command_queue_.front().toUtf8();
+//        last_command_ = prior_command_queue_.front();
+//        command_bytes.push_back(LINE_FEED_CHAR);
+//        MH_Serial_WriteData(command_bytes);
+//        wait_command_respond = true;
+//        prior_command_queue_.pop_front();
+//        emit MH_Signal_WrittenBytesToShow(last_command_.toUtf8());
+//      } else if (command_queue_.size() > 0) {
+//        QByteArray command_bytes = command_queue_.front().toUtf8();
+//        last_command_ = command_queue_.front();
+//        command_bytes.push_back(LINE_FEED_CHAR);
+//        MH_Serial_WriteData(command_bytes);
+//        wait_command_respond = true;
+//        command_queue_.pop_front();
+//        emit MH_Signal_WrittenBytesToShow(last_command_.toUtf8());
+//      }
+//    }
+
     if (wait_disconnect_) {
       thread_running_ = false;
       wait_disconnect_ = false;
@@ -257,6 +335,7 @@ bool Marlin_Host::MH_Serial_Initialize() {
   serial_host_->setFlowControl(serial_setting_.flow_control);
 
   command_queue_.clear();
+  prior_command_queue_.clear();
 
   if (serial_host_->open(QIODevice::ReadWrite)) {
     marlin_host_connected_ = true;

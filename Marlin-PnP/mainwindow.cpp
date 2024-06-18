@@ -43,6 +43,7 @@ void MainWindow::event_initialize() {
           this, &MainWindow::event_clicked_btn_serial_send);
   connect(ui->line_edit_serial_command, &QLineEdit::returnPressed,
           this, &MainWindow::event_return_pressed_line_edit_serial_command);
+//  connect(ui->line_edit_serial_command
 
   connect(ui->btn_home, &QPushButton::clicked,
           this, &MainWindow::event_clicked_btn_home);
@@ -147,10 +148,56 @@ void MainWindow::event_clicked_btn_serial_connect() {
 }
 
 void MainWindow::event_clicked_btn_serial_send() {
-  if (marlin_host->MH_IsConnected()) {
-    marlin_host->MH_WriteCommand(ui->line_edit_serial_command->text());
+//  send_marlin_command();
+
+  Marlin_Host::Position pick(80, 90, 9.5, 0);
+  Marlin_Host::Position place(160, 180, 9.5, 50);
+  Marlin_Host::Position pick1(300, 100, 9.5, 0);
+  Marlin_Host::Position place1(300, 180, 9.5, 50);
+  if (!test) {
+    marlin_host->MH_PnP(pick, 30, place, 30, 20000, 10000);
+    marlin_host->MH_PnP(pick1, 30, place1, 30, 20000, 10000);
+  } else {
+    marlin_host->MH_PnP(place, 30, pick, 30, 20000, 10000);
+    marlin_host->MH_PnP(place1, 30, pick1, 30, 20000, 10000);
   }
+  test = !test;
 }
+
+//void MainWindow::event_clicked_btn_serial_send_prior() {
+//  if (marlin_host->MH_IsConnected()) {
+//////    marlin_host->MH_WritePriorCommand(ui->line_edit_serial_command_prior->text());
+////    marlin_host->MH_WriteCommand("G0 X100 Y100 Z30 F22000");
+////    // start
+////    marlin_host->MH_WriteCommand("G0 X100 Y100 Z10 F10000");
+////    marlin_host->MH_DisableValve();
+////    marlin_host->MH_WriteCommand("G0 X100 Y100 Z20 F10000");
+////    marlin_host->MH_WriteCommand("G0 X300 Y100 Z30 F22000");
+////    marlin_host->MH_WriteCommand("G0 X300 Y100 Z10 F10000");
+////    marlin_host->MH_EnableValve();
+////    marlin_host->MH_WriteCommand("G4 P100");
+////    marlin_host->MH_WriteCommand("G0 X300 Y100 Z30 F10000");
+////    marlin_host->MH_DisableValve();
+////    Marlin_Host::Position pick(100.5, 27.8, 50.815, 297.32);
+////    qDebug() << Marlin_Host::MH_StrMoveL(pick);
+////    qDebug() << Marlin_Host::MH_StrMoveL(pick, 50.7);
+////    qDebug() << Marlin_Host::MH_StrMoveL(pick, 0, true);
+////    qDebug() << Marlin_Host::MH_StrMoveL(pick, 50.7, true);
+
+//    Marlin_Host::Position pick(100, 100, 1, 0);
+//    Marlin_Host::Position place(160, 220, 1, 50);
+//    Marlin_Host::Position pick1(130, 100, 1, 0);
+//    Marlin_Host::Position place1(100, 220, 1, 50);
+//    if (!test) {
+//      marlin_host->MH_PnP(pick, 30, place, 30, 20000, 10000);
+//      marlin_host->MH_PnP(pick1, 30, place1, 30, 20000, 10000);
+//    } else {
+//      marlin_host->MH_PnP(place, 30, pick, 30, 20000, 10000);
+//      marlin_host->MH_PnP(place1, 30, pick1, 30, 20000, 10000);
+//    }
+//    test = !test;
+//  }
+//}
 
 //void MainWindow::event_clicked_btn_serial_test() {
 //  if (marlin_host->MH_IsConnected()) {
@@ -176,9 +223,7 @@ void MainWindow::event_clicked_btn_serial_send() {
 //}
 
 void MainWindow::event_return_pressed_line_edit_serial_command() {
-  if (marlin_host->MH_IsConnected()) {
-    marlin_host->MH_WriteCommand(ui->line_edit_serial_command->text());
-  }
+  send_marlin_command();
 }
 
 void MainWindow::event_clicked_btn_home() {
@@ -396,4 +441,12 @@ void MainWindow::marlin_host_event_target_position_changed(
   ui->lb_position_y->setText("Y: " + QString::number(target.Y));
   ui->lb_position_z->setText("Z: " + QString::number(target.Z));
   ui->lb_position_r->setText("R: " + QString::number(target.R));
+}
+
+void MainWindow::send_marlin_command(){
+  if (marlin_host->MH_IsConnected()) {
+    QString command = ui->line_edit_serial_command->text();
+    marlin_host->MH_WriteCommand(command);
+    ui->line_edit_serial_command->saveText();
+  }
 }

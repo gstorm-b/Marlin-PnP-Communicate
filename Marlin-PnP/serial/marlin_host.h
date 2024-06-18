@@ -30,10 +30,19 @@ public:
   };
 
   struct Position {
-    double X;
-    double Y;
-    double Z;
-    double R;
+    double X = 0;
+    double Y = 0;
+    double Z = 0;
+    double R = 0;
+
+    Position() {}
+
+    Position(double x, double y, double z, double r) {
+      X = x;
+      Y = y;
+      Z = z;
+      R = r;
+    }
   };
 
   explicit Marlin_Host(QThread::Priority priority = QThread::NormalPriority,
@@ -46,9 +55,13 @@ public:
   void MH_Disconnect();
   bool MH_IsConnected();
   void MH_WriteCommand(QString command);
+  void MH_WritePriorCommand(QString command);
   void MH_Home();
   void MH_DisableStepper();
   void MH_ManualJog(Axis axis, double distance);
+  void MH_PnP(Position pick, double pick_jump,
+              Position place, double place_jump,
+              double speed = 22000, double lift_speed = 10000);
   void MH_EnableValve();
   void MH_DisableValve();
   bool MH_IsValveEnable();
@@ -57,6 +70,7 @@ public:
   bool MH_IsBumpEnable();
   Position MH_CurrentTargetPosition();
   QString MH_LastCommand();
+  static QString MH_StrMoveL(Position coor, double speed = 0, bool use_r = false);
 
 private:
   void run() override;
@@ -82,6 +96,7 @@ private:
   bool marlin_host_connected_;
   bool wait_disconnect_;
   QList<QString> command_queue_;
+  QList<QString> prior_command_queue_;
   QString last_command_;
   Position target_position_;
   bool is_bump_enable_;

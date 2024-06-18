@@ -1643,7 +1643,7 @@
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
-       <widget class="QLineEdit" name="line_edit_serial_command">
+       <widget class="BLineEdit" name="line_edit_serial_command">
         <property name="minimumSize">
          <size>
           <width>500</width>
@@ -1691,6 +1691,13 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>BLineEdit</class>
+   <extends>QLineEdit</extends>
+   <header location="global">blineedit.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
