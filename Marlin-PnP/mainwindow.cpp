@@ -150,20 +150,7 @@ void MainWindow::event_clicked_btn_serial_connect() {
 }
 
 void MainWindow::event_clicked_btn_serial_send() {
-//  send_marlin_command();
-
-  Marlin_Host::Position pick(200, 80, 9, 0);
-  Marlin_Host::Position place(20, 150, 9, 1);
-  Marlin_Host::Position pick1(300, 100, 9.5, 0);
-  Marlin_Host::Position place1(300, 180, 9.5, 10);
-  if (!test) {
-    marlin_host->MH_PnP(pick, 30, place, 30, 10000, 5000);
-    marlin_host->MH_PnP(pick1, 30, place1, 30, 10000, 5000);
-  } else {
-    marlin_host->MH_PnP(place, 30, pick, 30, 10000, 5000);
-    marlin_host->MH_PnP(place1, 30, pick1, 30, 10000, 5000);
-  }
-  test = !test;
+  send_marlin_command();
 }
 
 void MainWindow::event_clicked_btn_serial_clear() {
