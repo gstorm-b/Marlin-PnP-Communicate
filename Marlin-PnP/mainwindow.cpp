@@ -41,6 +41,8 @@ void MainWindow::event_initialize() {
           this, &MainWindow::event_clicked_btn_serial_connect);
   connect(ui->btn_serial_send, &QPushButton::clicked,
           this, &MainWindow::event_clicked_btn_serial_send);
+  connect(ui->btn_serial_clear, &QPushButton::clicked,
+          this, &MainWindow::event_clicked_btn_serial_clear);
   connect(ui->line_edit_serial_command, &QLineEdit::returnPressed,
           this, &MainWindow::event_return_pressed_line_edit_serial_command);
 //  connect(ui->line_edit_serial_command
@@ -150,77 +152,23 @@ void MainWindow::event_clicked_btn_serial_connect() {
 void MainWindow::event_clicked_btn_serial_send() {
 //  send_marlin_command();
 
-  Marlin_Host::Position pick(80, 90, 9.5, 0);
-  Marlin_Host::Position place(160, 180, 9.5, 50);
+  Marlin_Host::Position pick(200, 80, 9, 0);
+  Marlin_Host::Position place(20, 150, 9, 1);
   Marlin_Host::Position pick1(300, 100, 9.5, 0);
-  Marlin_Host::Position place1(300, 180, 9.5, 50);
+  Marlin_Host::Position place1(300, 180, 9.5, 10);
   if (!test) {
-    marlin_host->MH_PnP(pick, 30, place, 30, 20000, 10000);
-    marlin_host->MH_PnP(pick1, 30, place1, 30, 20000, 10000);
+    marlin_host->MH_PnP(pick, 30, place, 30, 10000, 5000);
+    marlin_host->MH_PnP(pick1, 30, place1, 30, 10000, 5000);
   } else {
-    marlin_host->MH_PnP(place, 30, pick, 30, 20000, 10000);
-    marlin_host->MH_PnP(place1, 30, pick1, 30, 20000, 10000);
+    marlin_host->MH_PnP(place, 30, pick, 30, 10000, 5000);
+    marlin_host->MH_PnP(place1, 30, pick1, 30, 10000, 5000);
   }
   test = !test;
 }
 
-//void MainWindow::event_clicked_btn_serial_send_prior() {
-//  if (marlin_host->MH_IsConnected()) {
-//////    marlin_host->MH_WritePriorCommand(ui->line_edit_serial_command_prior->text());
-////    marlin_host->MH_WriteCommand("G0 X100 Y100 Z30 F22000");
-////    // start
-////    marlin_host->MH_WriteCommand("G0 X100 Y100 Z10 F10000");
-////    marlin_host->MH_DisableValve();
-////    marlin_host->MH_WriteCommand("G0 X100 Y100 Z20 F10000");
-////    marlin_host->MH_WriteCommand("G0 X300 Y100 Z30 F22000");
-////    marlin_host->MH_WriteCommand("G0 X300 Y100 Z10 F10000");
-////    marlin_host->MH_EnableValve();
-////    marlin_host->MH_WriteCommand("G4 P100");
-////    marlin_host->MH_WriteCommand("G0 X300 Y100 Z30 F10000");
-////    marlin_host->MH_DisableValve();
-////    Marlin_Host::Position pick(100.5, 27.8, 50.815, 297.32);
-////    qDebug() << Marlin_Host::MH_StrMoveL(pick);
-////    qDebug() << Marlin_Host::MH_StrMoveL(pick, 50.7);
-////    qDebug() << Marlin_Host::MH_StrMoveL(pick, 0, true);
-////    qDebug() << Marlin_Host::MH_StrMoveL(pick, 50.7, true);
-
-//    Marlin_Host::Position pick(100, 100, 1, 0);
-//    Marlin_Host::Position place(160, 220, 1, 50);
-//    Marlin_Host::Position pick1(130, 100, 1, 0);
-//    Marlin_Host::Position place1(100, 220, 1, 50);
-//    if (!test) {
-//      marlin_host->MH_PnP(pick, 30, place, 30, 20000, 10000);
-//      marlin_host->MH_PnP(pick1, 30, place1, 30, 20000, 10000);
-//    } else {
-//      marlin_host->MH_PnP(place, 30, pick, 30, 20000, 10000);
-//      marlin_host->MH_PnP(place1, 30, pick1, 30, 20000, 10000);
-//    }
-//    test = !test;
-//  }
-//}
-
-//void MainWindow::event_clicked_btn_serial_test() {
-//  if (marlin_host->MH_IsConnected()) {
-//    for(int i=0;i<50;i++) {
-//      marlin_host->MH_WriteCommand("G0 X100 Y100 F20000");
-//      marlin_host->MH_WriteCommand("G1 E10 F10000");
-//      marlin_host->MH_WriteCommand("G0 Z40 F15000");
-//      marlin_host->MH_WriteCommand("G0 Z70 F15000");
-//      marlin_host->MH_WriteCommand("G0 X150 Y200 F20000");
-//      marlin_host->MH_WriteCommand("G1 E0 F10000");
-//      marlin_host->MH_WriteCommand("G0 Z40 F15000");
-//      marlin_host->MH_WriteCommand("G0 Z70 F15000");
-//    }
-//  }
-//if (marlin_host->MH_IsConnected()) {
-//  for(int i=0;i<30;i++) {
-//    marlin_host->MH_WriteCommand("G1 E10 F10000");
-//    marlin_host->MH_WriteCommand("G0 Z40 F10000");
-//    marlin_host->MH_WriteCommand("G0 Z70 F10000");
-//    marlin_host->MH_WriteCommand("G1 E0 F10000");
-//  }
-//}
-//}
+void MainWindow::event_clicked_btn_serial_clear() {
+  ui->text_browser_serial_read->clear();
+}
 
 void MainWindow::event_return_pressed_line_edit_serial_command() {
   send_marlin_command();

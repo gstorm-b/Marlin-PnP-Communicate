@@ -1,4 +1,4 @@
-QT       += core gui serialport
+QT       += core gui serialport network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -13,13 +13,15 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     serial/marlin_host.cpp \
-    serial/serialsettingdialog.cpp
+    serial/serialsettingdialog.cpp \
+    timer/TimeCounter.cpp
 
 HEADERS += \
     blineedit.h \
     mainwindow.h \
     serial/marlin_host.h \
-    serial/serialsettingdialog.h
+    serial/serialsettingdialog.h \
+    timer/TimeCounter.h
 
 FORMS += \
     mainwindow.ui \

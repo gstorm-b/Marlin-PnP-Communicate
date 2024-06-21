@@ -29,6 +29,7 @@ private:
   void event_initialize();
   void event_clicked_btn_serial_connect();
   void event_clicked_btn_serial_send();
+  void event_clicked_btn_serial_clear();
   void event_return_pressed_line_edit_serial_command();
   void event_key_pressed_line_edit_serial_command(QKeyEvent *event);
 

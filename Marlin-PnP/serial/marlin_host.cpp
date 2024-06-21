@@ -6,10 +6,13 @@ Marlin_Host::Marlin_Host(QThread::Priority priority, QObject *parent)
   thread_running_ = false;
   marlin_host_connected_ = false;
   wait_disconnect_ = false;
+
+  MH_TcpServerInitialize();
 }
 
 Marlin_Host::~Marlin_Host() {
-
+  tcp_server_->deleteLater();
+  client_connection_->deleteLater();
 }
 
 void Marlin_Host::MH_Connect(SerialSetting setting) {
@@ -38,6 +41,10 @@ bool Marlin_Host::MH_IsConnected() {
 }
 
 void Marlin_Host::MH_WriteCommand(QString command) {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
   if (command.isEmpty()) {
     return;
   }
@@ -46,35 +53,28 @@ void Marlin_Host::MH_WriteCommand(QString command) {
   mutex_.unlock();
 }
 
-void Marlin_Host::MH_WritePriorCommand(QString command) {
+void Marlin_Host::MH_WriteCommandAtFront(QString command) {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
   if (command.isEmpty()) {
     return;
   }
   mutex_.tryLock(MUTEX_SERIAL_LOCK_TIMEOUT);
-  prior_command_queue_.push_back(command);
+  command_queue_.push_front(command);
   mutex_.unlock();
 }
 
 void Marlin_Host::MH_Home() {
-  if (!MH_IsConnected()) {
-    return;
-  }
-
   MH_WriteCommand("G28");
 }
 
 void Marlin_Host::MH_DisableStepper() {
-  if (!MH_IsConnected()) {
-    return;
-  }
   MH_WriteCommand("M18");
 }
 
 void Marlin_Host::MH_ManualJog(Axis axis, double distance) {
-  if (!MH_IsConnected()) {
-    return;
-  }
-
   QString jog_command = "G0";
 
   switch (axis) {
@@ -102,42 +102,39 @@ void Marlin_Host::MH_ManualJog(Axis axis, double distance) {
 
 void Marlin_Host::MH_PnP(Position pick, double pick_jump,
             Position place, double place_jump,
-            double speed, double lift_speed) {
+            double speed, double lift_speed, int delay) {
 
   Position pick_high = pick;
   pick_high.Z += pick_jump;
   Position place_high = place;
   place_high.Z += place_jump;
 
-//  MH_WriteCommand("M204 P1000");
-
   MH_WriteCommand(MH_StrMoveL(pick_high, speed, true));
-  MH_WriteCommand("G4 P200");
-  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%.3f", pick.Z, lift_speed));
+  MH_WriteCommand("M114");
+  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%.3f", pick.Z + 1, lift_speed));
+  MH_WriteCommand("M114");
+  MH_Dwell(delay);
   MH_WriteCommand(QString::asprintf("G0 Z%.3f", pick_high.Z));
-
+  MH_WriteCommand("M114");
   MH_WriteCommand(MH_StrMoveL(place_high, speed, true));
-
+  MH_WriteCommand("M114");
   MH_WriteCommand(QString::asprintf("G0 Z%.3f F%.3f", place.Z, lift_speed));
+  MH_WriteCommand("M114");
+  MH_WaitFinishMove();
   MH_EnableValve();
-  MH_WriteCommand("G4 P200");
+  MH_Dwell(delay);
   MH_WriteCommand(QString::asprintf("G0 Z%.3f", place_high.Z));
+  MH_WriteCommand("M114");
+  MH_WaitDonePnp();
   MH_DisableValve();
+
 }
 
 void Marlin_Host::MH_EnableValve() {
-  if (!MH_IsConnected()) {
-    return;
-  }
-
   MH_WriteCommand(VALVE_ENABLE);
 }
 
 void Marlin_Host::MH_DisableValve() {
-  if (!MH_IsConnected()) {
-    return;
-  }
-
   MH_WriteCommand(VALVE_DISBALE);
 }
 
@@ -151,18 +148,10 @@ bool Marlin_Host::MH_IsValveEnable() {
 
 
 void Marlin_Host::MH_EnableBump() {
-  if (!MH_IsConnected()) {
-    return;
-  }
-
   MH_WriteCommand(BUMP_ENABLE);
 }
 
 void Marlin_Host::MH_DisableBump() {
-  if (!MH_IsConnected()) {
-    return;
-  }
-
   MH_WriteCommand(BUMP_DISBALE);
 }
 
@@ -173,6 +162,19 @@ bool Marlin_Host::MH_IsBumpEnable() {
   mutex_.unlock();
   return state;
 }
+
+void Marlin_Host::MH_Dwell(int time) {
+  MH_WriteCommand(QString::asprintf("G4 P%d", time));
+}
+
+void Marlin_Host::MH_WaitFinishMove() {
+  MH_WriteCommand("M400");
+}
+
+void Marlin_Host::MH_WaitDonePnp() {
+  MH_WriteCommand("M409");
+}
+
 
 Marlin_Host::Position Marlin_Host::MH_CurrentTargetPosition() {
   Marlin_Host::Position target;
@@ -190,10 +192,10 @@ QString Marlin_Host::MH_LastCommand(){
   return command;
 }
 
-QString Marlin_Host::MH_StrMoveL(Position coor, double speed, bool use_r){
+const QString Marlin_Host::MH_StrMoveL(Position coor, double speed, bool use_r){
   QString command;
   if (use_r) {
-    command = QString::asprintf("G1 X%.3f Y%.3f Z%.3f R%.3f", coor.X, coor.Y, coor.Z, coor.R);
+    command = QString::asprintf("G1 X%.3f Y%.3f Z%.3f E%.3f", coor.X, coor.Y, coor.Z, coor.R);
   } else {
     command = QString::asprintf("G0 X%.3f Y%.3f Z%.3f", coor.X, coor.Y, coor.Z);
   }
@@ -206,7 +208,8 @@ QString Marlin_Host::MH_StrMoveL(Position coor, double speed, bool use_r){
 }
 
 void Marlin_Host::run() {
-  if (!MH_Serial_Initialize()) {
+
+  if (!MH_SerialInitialize()) {
     thread_running_ = false;
     qDebug() << "Marlin host initialze failed!";
     return;
@@ -215,9 +218,10 @@ void Marlin_Host::run() {
   qDebug() << "Marlin host running...";
   QByteArray read_bytes;
   bool wait_command_respond = false;
-  this->msleep(2000);
-  MH_WriteCommand("G21");
-  MH_WriteCommand("M154 S1");
+  this->msleep(1000);
+  MH_WriteCommandAtFront("G21");
+  MH_WriteCommandAtFront("M503");
+//  MH_WriteCommand("M154 S1");
 
   while (thread_running_) {
     // thread handle
@@ -249,6 +253,9 @@ void Marlin_Host::run() {
             } else if (last_command_ == BUMP_DISBALE) {
               is_bump_enable_ = false;
             }
+            continue;
+          } else if (lines[i] == "rep:PnP Done") {
+            emit MH_Signal_PnpDone();
             continue;
           }
 
@@ -286,26 +293,6 @@ void Marlin_Host::run() {
       emit MH_Signal_WrittenBytesToShow(last_command_.toUtf8());
     }
 
-//    if (!wait_command_respond) {
-//      if (prior_command_queue_.size() > 0) {
-//        QByteArray command_bytes = prior_command_queue_.front().toUtf8();
-//        last_command_ = prior_command_queue_.front();
-//        command_bytes.push_back(LINE_FEED_CHAR);
-//        MH_Serial_WriteData(command_bytes);
-//        wait_command_respond = true;
-//        prior_command_queue_.pop_front();
-//        emit MH_Signal_WrittenBytesToShow(last_command_.toUtf8());
-//      } else if (command_queue_.size() > 0) {
-//        QByteArray command_bytes = command_queue_.front().toUtf8();
-//        last_command_ = command_queue_.front();
-//        command_bytes.push_back(LINE_FEED_CHAR);
-//        MH_Serial_WriteData(command_bytes);
-//        wait_command_respond = true;
-//        command_queue_.pop_front();
-//        emit MH_Signal_WrittenBytesToShow(last_command_.toUtf8());
-//      }
-//    }
-
     if (wait_disconnect_) {
       thread_running_ = false;
       wait_disconnect_ = false;
@@ -322,7 +309,7 @@ void Marlin_Host::run() {
   qDebug() << "Marlin host stopped.";
 }
 
-bool Marlin_Host::MH_Serial_Initialize() {
+bool Marlin_Host::MH_SerialInitialize() {
   serial_host_ = new QSerialPort;
   connect(this, &Marlin_Host::finished,
           serial_host_, &QSerialPort::deleteLater);
@@ -358,5 +345,158 @@ void Marlin_Host::MH_Serial_WriteData(const QByteArray &data) {
     emit MH_Signal_ErrorOccurred(error);
     return;
   }
-  qDebug() << "Marlin host data written.";
+//  qDebug() << "Marlin host data written.";
 }
+
+void Marlin_Host::MH_TcpServerInitialize() {
+  tcp_server_ = new QTcpServer(this);
+  client_connection_ = new QTcpSocket(this);
+
+  MH_TcpServerListen();
+
+  connect(tcp_server_, &QTcpServer::newConnection, this, &Marlin_Host::MH_TcpInComming);
+    connect(this, &Marlin_Host::MH_Signal_PnpDone, this, &Marlin_Host::MH_TcpPnpDone);
+}
+
+void Marlin_Host::MH_TcpServerListen() {
+  // get TCP Sever address
+  const QList<QHostAddress> ipAddressesList = QNetworkInterface::allAddresses();
+
+  for (const QHostAddress &entry : ipAddressesList) {
+    // use the first non-localhost IPv4 address
+    if (entry != QHostAddress::LocalHost && entry.toIPv4Address()) {
+      tcp_address_ = entry.toString();
+      qDebug() << QString(
+                      "TCP Server is listening at address %1, port %2").
+                  arg(tcp_address_).arg(tcp_port_);
+      break;
+    }
+  }
+
+  if (!tcp_server_->listen(QHostAddress::Any, tcp_port_)) {
+    qDebug() << "Listen failed!";
+    emit MH_Signal_TcpServerInitFailed(tcp_server_->errorString());
+    return;
+  }
+}
+
+void Marlin_Host::MH_TcpInComming() {
+  if (client_connection_->state() != QTcpSocket::UnconnectedState) {
+    return;
+  }
+
+  qDebug() << "Incomming TCP Client connect...";
+
+  client_connection_ = tcp_server_->nextPendingConnection();
+  connect(client_connection_, &QAbstractSocket::disconnected,
+          this, &Marlin_Host::MH_TcpDisconnected);
+
+  client_connection_->write("You're handling Marlin PNP control port...\n");
+  connect(client_connection_, &QTcpSocket::readyRead, this, &Marlin_Host::MH_TcpReadFromClient);
+
+  tcp_server_->close();
+}
+
+void Marlin_Host::MH_TcpReadFromClient() {
+  if (!MH_IsConnected()) {
+    return;
+  }
+
+  QString read_bytes = QString::fromUtf8(client_connection_->readAll());
+//  qDebug() << QString::fromUtf8(read_bytes);
+
+  QList<QString> commands = read_bytes.split(TCP_CHAR_END);
+
+  for (const QString &cmd : commands) {
+    if (cmd.isEmpty()) {
+      continue;
+    }
+
+    MH_TcpCommandHandle(cmd);
+  }
+}
+
+void Marlin_Host::MH_TcpCommandHandle(const QString &command) {
+  if (command.isEmpty()) {
+    return;
+  }
+
+  QList<QString> element = command.split(TCP_CHAR_SEPARATOR);
+
+  if ((element.at(0) == TCP_CMD_HOME) && (element.size() == 1)){
+
+    MH_Home();
+
+  } else if ((element.at(0) == TCP_CMD_SET_BUMP) && (element.size() == 2)) {
+
+    if (element.at(1) == "1") MH_EnableBump();
+    else if (element.at(1) == "0") MH_DisableBump();
+
+  } else if ((element.at(0) == TCP_CMD_SET_VALVE) && (element.size() == 2)) {
+
+    if (element.at(1) == "1") MH_EnableValve();
+    else if (element.at(1) == "0") MH_DisableValve();
+
+  } else if ((element.at(0) == TCP_CMD_PNP) && (element.size() >= 5)) {
+
+    Position pick_point(element.at(1));
+    double pick_jump = element.at(2).toDouble();
+    Position place_point(element.at(3));
+    double place_jump = element.at(4).toDouble();
+
+    if (!pick_point.gotFromStr || !place_point.gotFromStr) {
+      client_connection_->write("Host response: wrong format.\n");
+      return;
+    }
+
+    double speed;
+    double lift_speed;
+    double delay;
+
+//    qDebug() << "Element size:" << element.size();
+//    qDebug() << "Pick point:" << pick_point.toQString();
+//    qDebug() << "Pick jump:" << pick_jump;
+//    qDebug() << "Pick point:" << place_point.toQString();
+//    qDebug() << "Place jump:" << place_jump;
+
+    if (element.size() == 6) {
+      speed = element.at(5).toDouble();
+      MH_PnP(pick_point, pick_jump, place_point, place_jump, speed);
+
+    } else if (element.size() == 7) {
+      speed = element.at(5).toDouble();
+      lift_speed = element.at(6).toDouble();
+      MH_PnP(pick_point, pick_jump, place_point, place_jump,
+             speed, lift_speed);
+    } else if (element.size() == 8) {
+      speed = element.at(5).toDouble();
+      lift_speed = element.at(6).toDouble();
+      delay = element.at(7).toInt();
+      MH_PnP(pick_point, pick_jump, place_point, place_jump,
+             speed, lift_speed, delay);
+    } else {
+      MH_PnP(pick_point, pick_jump, place_point, place_jump);
+    }
+
+  } else if ((element.at(0) == TCP_CMD_GCODE) && (element.size() == 2)) {
+
+    MH_WriteCommand(element.at(1));
+
+  } else {
+    client_connection_->write(
+        "Host response: command doesn't exist or wrong format.\n");
+  }
+}
+
+void Marlin_Host::MH_TcpDisconnected() {
+  qDebug() << "Client disconnected!";
+  MH_TcpServerListen();
+}
+
+void Marlin_Host::MH_TcpPnpDone() {
+  client_connection_->write("Host repsonse: PnP Done.\n");
+}
+
+// PnP,(200 80 9 0),30,(20 150 9 1),30;
+// PnP,(200 80 9 0),30,(20 150 9 1),30,10000,5000;
+// PnP,(200 80 9 0),30,(20 150 9 1),30,10000,5000,2000;

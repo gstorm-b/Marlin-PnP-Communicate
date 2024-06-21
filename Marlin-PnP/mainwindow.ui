@@ -7,14 +7,14 @@
     <x>0</x>
     <y>0</y>
     <width>680</width>
-    <height>1011</height>
+    <height>1059</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QVBoxLayout" name="verticalLayout_2">
+   <layout class="QVBoxLayout" name="verticalLayout_4">
     <item>
      <widget class="QGroupBox" name="groupBox">
       <property name="font">
@@ -1641,23 +1641,54 @@
      </widget>
     </item>
     <item>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout_2">
+      <property name="spacing">
+       <number>20</number>
+      </property>
       <item>
-       <widget class="BLineEdit" name="line_edit_serial_command">
-        <property name="minimumSize">
-         <size>
-          <width>500</width>
-          <height>0</height>
-         </size>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="horizontalLayout_3">
+        <item>
+         <spacer name="horizontalSpacer_18">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_serial_clear">
+          <property name="text">
+           <string>Clear</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
       <item>
-       <widget class="QPushButton" name="btn_serial_send">
-        <property name="text">
-         <string>Send</string>
-        </property>
-       </widget>
+       <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <item>
+         <widget class="BLineEdit" name="line_edit_serial_command">
+          <property name="minimumSize">
+           <size>
+            <width>500</width>
+            <height>0</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="btn_serial_send">
+          <property name="text">
+           <string>Send</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </item>
      </layout>
     </item>
