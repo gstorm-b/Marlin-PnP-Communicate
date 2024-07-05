@@ -783,7 +783,7 @@
  * Prevent a single extrusion longer than EXTRUDE_MAXLENGTH.
  * Note: For Bowden Extruders make this large enough to allow load/unload.
  */
-#define PREVENT_LENGTHY_EXTRUDE
+// #define PREVENT_LENGTHY_EXTRUDE
 #define EXTRUDE_MAXLENGTH 200
 
 //===========================================================================
@@ -1084,7 +1084,8 @@
  * Override with M92
  *                                      X, Y, Z [, I [, J [, K]]], E0 [, E1[, E2...]]
  */
-#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 160, 320 }
+#define DEFAULT_AXIS_STEPS_PER_UNIT   { 80, 80, 160, 17.777 }
+//{ 80, 80, 160, 320 }
 
 /**
  * Default Max Feed Rate (mm/s)

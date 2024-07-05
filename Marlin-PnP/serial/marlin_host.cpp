@@ -109,16 +109,23 @@ void Marlin_Host::MH_PnP(Position pick, double pick_jump,
   Position place_high = place;
   place_high.Z += place_jump;
 
+//  int feedrate = speed * 60;
+  int lift_feedrate = lift_speed * 60;
+
   MH_WriteCommand(MH_StrMoveL(pick_high, speed, true));
   MH_WriteCommand("M114");
-  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%.3f", pick.Z + 1, lift_speed));
+  MH_EnableValve();
+  MH_WaitFinishMove();
+  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%d", pick.Z + 1, lift_feedrate));
   MH_WriteCommand("M114");
+  MH_WaitFinishMove();
+  MH_DisableValve();
   MH_Dwell(delay);
   MH_WriteCommand(QString::asprintf("G0 Z%.3f", pick_high.Z));
   MH_WriteCommand("M114");
   MH_WriteCommand(MH_StrMoveL(place_high, speed, true));
   MH_WriteCommand("M114");
-  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%.3f", place.Z, lift_speed));
+  MH_WriteCommand(QString::asprintf("G0 Z%.3f F%d", place.Z, lift_feedrate));
   MH_WriteCommand("M114");
   MH_WaitFinishMove();
   MH_EnableValve();
@@ -201,7 +208,8 @@ const QString Marlin_Host::MH_StrMoveL(Position coor, double speed, bool use_r){
   }
 
   if (speed > 0) {
-    command.append(QString::asprintf(" F%.3f", speed));
+    speed *= 60.0;
+    command.append(QString::asprintf(" F%d", (int)speed));
   }
 
   return command;
@@ -255,7 +263,9 @@ void Marlin_Host::run() {
             }
             continue;
           } else if (lines[i] == "rep:PnP Done") {
+
             emit MH_Signal_PnpDone();
+            emit MH_Signal_ReadBytesToShow(lines[i]);
             continue;
           }
 
@@ -404,6 +414,7 @@ void Marlin_Host::MH_TcpReadFromClient() {
 
   QString read_bytes = QString::fromUtf8(client_connection_->readAll());
 //  qDebug() << QString::fromUtf8(read_bytes);
+//  qDebug() << read_bytes;
 
   QList<QString> commands = read_bytes.split(TCP_CHAR_END);
 
@@ -427,6 +438,15 @@ void Marlin_Host::MH_TcpCommandHandle(const QString &command) {
 
     MH_Home();
 
+  } else if ((element.at(0) == TCP_CMD_MOVEL) && (element.size() == 3)) {
+
+    Position pos(element.at(1));
+    if (pos.gotFromStr) {
+      MH_WriteCommand(MH_StrMoveL(pos, element.at(2).toDouble(), true));
+    } else {
+      client_connection_->write("Command wrong format.\n");
+    }
+
   } else if ((element.at(0) == TCP_CMD_SET_BUMP) && (element.size() == 2)) {
 
     if (element.at(1) == "1") MH_EnableBump();
@@ -445,7 +465,7 @@ void Marlin_Host::MH_TcpCommandHandle(const QString &command) {
     double place_jump = element.at(4).toDouble();
 
     if (!pick_point.gotFromStr || !place_point.gotFromStr) {
-      client_connection_->write("Host response: wrong format.\n");
+      client_connection_->write("Command wrong format.\n");
       return;
     }
 
@@ -468,12 +488,14 @@ void Marlin_Host::MH_TcpCommandHandle(const QString &command) {
       lift_speed = element.at(6).toDouble();
       MH_PnP(pick_point, pick_jump, place_point, place_jump,
              speed, lift_speed);
+
     } else if (element.size() == 8) {
       speed = element.at(5).toDouble();
       lift_speed = element.at(6).toDouble();
       delay = element.at(7).toInt();
       MH_PnP(pick_point, pick_jump, place_point, place_jump,
              speed, lift_speed, delay);
+
     } else {
       MH_PnP(pick_point, pick_jump, place_point, place_jump);
     }
@@ -484,7 +506,7 @@ void Marlin_Host::MH_TcpCommandHandle(const QString &command) {
 
   } else {
     client_connection_->write(
-        "Host response: command doesn't exist or wrong format.\n");
+        "Command doesn't exist or wrong format.\n");
   }
 }
 
@@ -494,9 +516,15 @@ void Marlin_Host::MH_TcpDisconnected() {
 }
 
 void Marlin_Host::MH_TcpPnpDone() {
-  client_connection_->write("Host repsonse: PnP Done.\n");
+  client_connection_->write("PnP Done.\n");
+  qDebug() << "PnP Done.\n";
+}
+
+double mmFeedrate(double mmpm) {
+  return mmpm / 60.0;
 }
 
 // PnP,(200 80 9 0),30,(20 150 9 1),30;
 // PnP,(200 80 9 0),30,(20 150 9 1),30,10000,5000;
 // PnP,(200 80 9 0),30,(20 150 9 1),30,10000,5000,2000;
+// MoveL,position,speed

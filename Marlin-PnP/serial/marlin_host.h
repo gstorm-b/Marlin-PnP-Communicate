@@ -22,8 +22,10 @@
 #define BUMP_ENABLE                 "M104 T0 S255"
 #define BUMP_DISBALE                "M104 T0 S0"
 
-#define TCP_CHAR_SEPARATOR           ','
-#define TCP_CHAR_END                 ';'
+#define TCP_CHAR_SEPARATOR          ','
+#define TCP_CHAR_END                ';'
+
+#define TCP_HOST_PORT               27800
 
 #define TCP_CMD_HOME                "Home"
 //#define TCP_CMD_JOG                 "Jog"
@@ -130,6 +132,8 @@ private:
   void MH_TcpDisconnected();
   void MH_TcpPnpDone();
 
+  double mmFeedrate(double mmpm);
+
 signals:
   void MH_Signal_Connected();
   void MH_Signal_Disconnected();
@@ -159,7 +163,7 @@ private:
   bool is_bump_enable_;
   bool is_valve_enable_;
   QString tcp_address_;
-  const int tcp_port_ = 278900;
+  const int tcp_port_ = TCP_HOST_PORT;
 };
 
 #endif // MARLIN_HOST_H
