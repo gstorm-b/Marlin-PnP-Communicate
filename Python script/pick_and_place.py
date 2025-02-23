@@ -51,8 +51,8 @@ if detected_circles is not None:
         x, y, r = pt[0], pt[1], pt[2] 
         real_point = calib_info.getCoordinate((x, y))
         print(real_point)
-        pick = Position(real_point[0], real_point[1], 53, 0)
-        place = Position((240 - (counter*10)), 195, 51, 180)
+        pick = Position(real_point[0], real_point[1], 55, 0)
+        place = Position((240 - (counter*10)), 195, 55, 180)
         counter += 1
         # print(str(pick.x), str(pick.y), str(pick.z))
         # client.marlinMoveL(pick, 100)

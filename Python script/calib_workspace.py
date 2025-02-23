@@ -41,12 +41,12 @@ x3, y3, r3 = find_circle(image_c_distort)
 x4, y4, r4 = find_circle(image_d_distort)
 
 ####
-#  raw point A: 0 - 50 - 55.5
-#  raw point B: 240 - 50 - 55.5
-#  raw point C: 0 - 200 - 55.5
-#  raw point D: 240 - 200 - 55.5
+#  raw point A: 10 - 50 - 55
+#  raw point B: 240 - 50 - 55
+#  raw point C: 10 - 200 - 55
+#  raw point D: 240 - 200 - 55
 # ###
 
-calib_info.setWorldPoints((0, 50), (240, 50), (0, 200), (240, 200))
+calib_info.setWorldPoints((10, 50), (240, 50), (10, 200), (240, 200))
 calib_info.setImagePoints((x1, y1), (x2, y2), (x3, y3), (x4, y4))
 calib_info.calibrateWorkspace()
